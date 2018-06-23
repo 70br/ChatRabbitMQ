@@ -1,4 +1,4 @@
-# ExemploRabbitMQ
+# ChatRabbitMQ
 
 Como gerar jar usando maven:
 
