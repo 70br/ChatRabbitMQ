@@ -2,6 +2,7 @@ package br.ufs.dcomp.chat;
 
 import com.rabbitmq.client.*;
 import com.google.protobuf.*;
+import com.google.gson.*;
 import java.util.*;
 import java.io.*;
 import java.nio.file.*;
@@ -15,10 +16,10 @@ public class Chat {
         String queueNameFile;
          
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setUsername("zezinho");
-        factory.setPassword("zezinho");
-        factory.setHost("ec2-34-220-179-43.us-west-2.compute.amazonaws.com");
-        factory.setVirtualHost("/");
+        factory.setUsername("wpocetio"); 
+        factory.setPassword("7lSl87HclvRd9garfS-khK55T9cGwBWb"); 
+        factory.setVirtualHost("wpocetio");
+        factory.setHost("lion.rmq.cloudamqp.com"); 
         Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
         Channel channelFile = connection.createChannel();
@@ -48,9 +49,9 @@ public class Chat {
                         String cont = message.getCorpo().toStringUtf8();
                         
                         if (grupo.isEmpty()) 
-                            System.out.println("(" + data + " às " + hora +") " +  emissor +" diz: " + cont);
+                            System.out.println("(" + data + " às " + hora +") " +  emissor + " diz: " + cont);
                         else 
-                            System.out.println("(" + data + " às " + hora +") " +  emissor + grupo +" diz: " + cont);
+                            System.out.println("(" + data + " às " + hora +") " +  emissor + grupo + " diz: " + cont);
                     }
                     catch(IOException e){
                         System.out.println(e.getMessage());
@@ -95,74 +96,79 @@ public class Chat {
         channelFile.basicConsume(queueNameFile, true, consumerFile);
         
         DateFormat dateTime = new SimpleDateFormat("dd/MM/yyyy HH:mm");
-        String msg;
-        String queueKey = "";
-        String groupName = "";
-        String groupNameFile = "";
+        boolean loop = true;
+        String msg, queueKey = "", groupName = "", groupNameFile = "";
         System.out.print(">> ");
         
-        while (true) {
+        while (loop) {
             try {
                 msg = s.nextLine();
-                if (msg.startsWith("@") || msg.startsWith("#")) {
+                if (msg.equals("") || msg.isEmpty())
+                    System.out.print(queueKey + ">> ");
+                if (msg.startsWith("@") || msg.startsWith("#")) { // @username ou #groupname
                     queueKey = msg;
                     System.out.print(queueKey + ">> ");
                 }
-                if (msg.startsWith("!new")) {
+                if (msg.startsWith("!newGroup")) { // !newGroup "grupo"
                     groupName = msg.substring(10);
                     groupNameFile = groupName.concat("-files");
-                    
                     channel.exchangeDeclare(groupName, "fanout");
                     channel.queueBind(queueName, groupName, "");
-                    
                     channelFile.exchangeDeclare(groupNameFile, "fanout");
                     channelFile.queueBind(queueNameFile, groupNameFile, "");
-                    
                     System.out.print(queueKey + ">> ");
                 }
-                if (msg.startsWith("!add")) {
-                    String[] command = msg.split("\\s");
-                    
-                    channel.queueBind(command[1], command[2], ""); // queueBind(nomeUsuario, nomeGrupo, "");
-                    channelFile.queueBind(command[1].concat("-files"), command[2].concat("-files"), "");
-                    
+                if (msg.startsWith("!addUser")) { // !addUser user grupo
+                    channel.queueBind(msg.split("\\s")[1], msg.split("\\s")[2], ""); 
+                    channelFile.queueBind(msg.split("\\s")[1].concat("-files"), msg.split("\\s")[2].concat("-files"), "");
                     System.out.print(queueKey + ">> ");
                 }
-                if (msg.startsWith("!del")) {
-                    String[] command = msg.split("\\s");
-                    
-                    channel.queueUnbind(command[1], command[2], ""); // queueUnbind(nomeUsuario, nomeGrupo, "");
-                    channelFile.queueUnbind(command[1].concat("-files"), command[2].concat("-files"), "");
-                    
+                if (msg.startsWith("!delFromGroup")) { // !delFromGroup user grupo
+                    channel.queueUnbind(msg.split("\\s")[1], msg.split("\\s")[2], ""); 
+                    channelFile.queueUnbind(msg.split("\\s")[1].concat("-files"), msg.split("\\s")[2].concat("-files"), "");
                     System.out.print(queueKey + ">> ");
                 }
-                if (msg.startsWith("!rem")) {
+                if (msg.startsWith("!removeGroup")) { // !removeGroup "grupo"
                     groupName = msg.substring(13);
                     groupNameFile = groupName.concat("-files");
-                    
                     channel.exchangeDelete(groupName);
                     channelFile.exchangeDelete(groupNameFile);
-                    
                     System.out.print(queueKey + ">> ");
                 }
-                if (msg.startsWith("!up")) {
-                    String daWaeSlash = msg.substring(8);
-                    String daWae = "";
-                    if(daWaeSlash.startsWith("/"))
-                        daWae = daWaeSlash.substring(1);
+                if (msg.startsWith("!upload")) { // !upload "diretorio"
+                    String url = msg.substring(8);
+                    String cm = "";
+                    if(url.startsWith("/"))
+                        cm = url.substring(1);
                     else
-                        daWae = daWaeSlash;
-                    //Path source = Paths.get(daWae);
-                    //String tipoMime = Files.probeContentType(source);
-                    
+                        cm = url;
+
                     Date data = new Date();
                     String dataS = dateTime.format(data);
                     String[] splitData = dataS.split("\\s");
                     
-                    System.out.println("Enviando \"" + daWae + "\" para " + queueKey + "...");
+                    System.out.println("Enviando \"" + cm + "\" para " + queueKey + "...");
                     System.out.print(queueKey + ">> ");
-                    Envio envio = new Envio(queueName, splitData[0], splitData[1], queueKey, daWae);
+                    Send envio = new Send(queueName, splitData[0], splitData[1], queueKey, cm);
                     envio.main(new String[]{});
+                }
+                if(msg.startsWith("!listGroups")){ // !listGroups
+                    String user = queueKey.substring(1);
+                    String path = "/api/queues/wpocetio/" + user + "/bindings";
+                    RESTClient rest = new RESTClient(path);
+                    rest.main(new String[]{});
+                    System.out.print("\n" + queueKey + ">> ");
+                }
+                if(msg.startsWith("!listUsers")){ // !listUsers "grupo"
+                    String group = msg.substring(11);
+                    String path = "/api/exchanges/wpocetio/" + group + "/bindings/source";
+                    RESTClient rest = new RESTClient(path);
+                    rest.main(new String[]{});
+                    System.out.print("\n" + queueKey + ">> ");
+                }
+                if(msg.equals("!quit")){
+                    System.out.println("Obrigado! Até a próxima.");
+                    loop = false;
                 }
                 if (!msg.substring(0,1).matches("\\p{Punct}")) {
                     if (queueKey.startsWith("@")) {
@@ -202,13 +208,14 @@ public class Chat {
                     }
                 }
             }
-            catch (Exception e) {
-                System.out.println("Algo deu errado, tente novamente.");
+            catch (IOException e) {
+                System.out.println("Houve um erro, tente novamente!");
                 if (queueKey.isEmpty())
                     System.out.print(">> ");
                 else
                     System.out.print(queueKey + ">> ");
             }
         }
+        System.exit(0);
     }
 }
