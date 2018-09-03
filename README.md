@@ -228,9 +228,3 @@ Para isso, deve-se pesquisar a documentação do RabbitMQ em:
 
 * https://www.rabbitmq.com/clustering.html
 * https://www.rabbitmq.com/ha.html
-
-## Repositório base para o trabalho
-
-Esse trabalho deve ser feito a partir do seguinte repositório base:
-
-https://classroom.github.com/a/7G_WRqkb
